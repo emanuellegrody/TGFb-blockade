@@ -4,9 +4,9 @@ library(Seurat)
 library(scCustomize)
 library(ggplot2)
 
-# Loading
+# Loading in data
 
-parseDirectory = "/projects/b1042/GoyalLab/egrody/ElenaTGFb/input/"
+parseDirectory = "~/inputs/"
 
 monkey171w35.data <- ReadParseBio(data.dir = paste0(parseDirectory, "08M171_W35/DGE_filtered"))
 monkey171w35.meta <- read.csv(paste0(parseDirectory, "08M171_W35/DGE_filtered/cell_metadata.csv"), row.names = 1)
@@ -111,7 +111,7 @@ monkeys.all <- list(monkey134w35, monkey134w37, monkey156w35, monkey156w37, monk
 
 monkeys.all <- lapply(monkeys.all, function(x) Add_Mito_Ribo_Seurat(x, species = "macaque"))
 
-#cutoffs were determined by FeatureScatter of nCount_RNA vs. percent_mito and nCount_RNA vs. nFeature_RNA
+##cutoffs were determined by FeatureScatter of nCount_RNA vs. percent_mito and nCount_RNA vs. nFeature_RNA
 monkeys.all[[1]] <- subset(monkeys.all[[1]], subset = percent_mito < 0.2 & nFeature_RNA > 200 & nFeature_RNA < 5000 & nCount_RNA < 20000)
 monkeys.all[[2]] <- subset(monkeys.all[[2]], subset = percent_mito < 0.4 & nFeature_RNA > 200 & nFeature_RNA < 5000 & nCount_RNA < 20000)
 monkeys.all[[3]] <- subset(monkeys.all[[3]], subset = percent_mito < 0.2 & nFeature_RNA > 200 & nFeature_RNA < 5000 & nCount_RNA < 20000)
@@ -136,14 +136,14 @@ monkeys.all <- lapply(X = monkeys.all, FUN = SCTransform)
 
 # Subset CD3s
 
-#monkeys.all.combined.sct.cd3 <- list()
+##subset CD3s to reduce size of Seurat objects before integration
 monkeys.all.preintegrate.cd3 <- list()
 for (i in 1:16) {
   testObject <- monkeys.all[[i]]
   test1 <- log1p(monkeys.all[[i]]@assays$RNA@data["CD3D",])
   test2 <- log1p(monkeys.all[[i]]@assays$RNA@data["CD3E",])
   test3 <- log1p(monkeys.all[[i]]@assays$RNA@data["CD3G",])
-  test4 <- log1p(monkeys.all[[i]]@assays$RNA@data["CD19",]) # B cells
+  test4 <- log1p(monkeys.all[[i]]@assays$RNA@data["CD19",]) ##exclude B cells
   test5 <- log1p(monkeys.all[[i]]@assays$RNA@data["PAX5",])
   test6 <- log1p(monkeys.all[[i]]@assays$RNA@data["MS4A1",])
   
@@ -156,20 +156,13 @@ for (i in 1:16) {
       return("-")
     }
   }))
-  
-  #monkeys.all.combined.sct.cd3[[i]] <- SplitObject(testObject, split.by = "CD3")$`+`
-  monkeys.all.preintegrate.cd3[[i]] <- SplitObject(testObject, split.by = "CD3")$`+`
-  # don't split monkeys.all into CD4s yet; let's integrate and then we can subset the CD3s into CD4s
-}
 
-#idiot test that we have the right number of cells
-cells.preintegrate <- unlist(lapply(monkeys.all.preintegrate.cd3, function(obj) {
-  ncol(obj)
-})) %>% sum()
+  monkeys.all.preintegrate.cd3[[i]] <- SplitObject(testObject, split.by = "CD3")$`+`
+}
 
 # Integration
 
-# free up memory by removing unneeded variables
+##free up memory by removing unneeded variables
 variables_to_remove <- ls()
 variable_to_keep <- c("monkeys.all.combined.sct.cd3")
 variables_to_remove <- variables_to_remove[variables_to_remove != variable_to_keep]
@@ -181,9 +174,6 @@ monkeys.all.combined.sct.cd3 <- PrepSCTIntegration(object.list = monkeys.all.com
 anchors <- FindIntegrationAnchors(object.list = monkeys.all.combined.sct.cd3, normalization.method = "SCT",
                                   anchor.features = features)
 monkeys.all.combined.sct.cd3 <- IntegrateData(anchorset = anchors, normalization.method = "SCT")
-
-#idiot test: cell count after integration
-cells.postintegrate <- sum(ncol(monkeys.all.combined.sct.cd3))
 
 # Dimension reduction
 
@@ -207,9 +197,9 @@ monkeys.all.combined.sct.cd3@meta.data$CD4.T <- unlist(lapply(indices, function(
 
 monkeys.all.cd4 <- SplitObject(monkeys.all.combined.sct.cd3, split.by = "CD4.T")$`+`
 
-
 # Subset CD8s
 
+##additional analysis on CD8s
 test1 <- log1p(monkeys.all.combined.sct.cd3@assays$RNA@data["CD8A",])
 test2 <- log1p(monkeys.all.combined.sct.cd3@assays$RNA@data["CD8B",])
 indices <- seq_along(monkeys.all.combined.sct.cd3@meta.data$orig.ident)
@@ -223,7 +213,6 @@ monkeys.all.combined.sct.cd3@meta.data$CD8.T <- unlist(lapply(indices, function(
 }))
 
 monkeys.all.cd8 <- SplitObject(monkeys.all.combined.sct.cd3, split.by = "CD8.T")$`+`
-
 
 # Differentially expressed genes
 
@@ -243,17 +232,18 @@ Idents(monkeys.all.combined.sct.cd3) <- "week"
 Idents(monkeys.all.cd4) <- "week"
 Idents(monkeys.all.cd8) <- "week"
 
-options(future.globals.maxSize = 1400 * 1024^2) # fixes error in getGlobalsAndPackages
+options(future.globals.maxSize = 1400 * 1024^2) ##fixes error in getGlobalsAndPackages
 deg.monkeys.all.combined.sct.cd3 <- FindMarkers(monkeys.all.combined.sct.cd3, logfc.threshold = 0.2, ident.1 = "W37", ident.2 = "W35", verbose = FALSE) %>% filter(p_val_adj <0.05)
 deg.monkeys.all.cd4 <- FindMarkers(monkeys.all.cd4, logfc.threshold = 0.2, ident.1 = "W37", ident.2 = "W35", verbose = FALSE) %>% filter(p_val_adj <0.05)
 deg.monkeys.all.cd8 <- FindMarkers(monkeys.all.cd8, logfc.threshold = 0.2, ident.1 = "W37", ident.2 = "W35", verbose = FALSE) %>% filter(p_val_adj <0.05)
 
-output.dir = "/projects/b1042/GoyalLab/egrody/ElenaTGFb/"
+output.dir = "~/outputs/"
 write.csv(deg.monkeys.all.combined.sct.cd3, paste0(output.dir, "deg.monkeys.all.newCD3.cd3.csv"))
 write.csv(deg.monkeys.all.cd4, paste0(output.dir, "deg.monkeys.all.newCD3.cd4.csv"))
 write.csv(deg.monkeys.all.cd8, paste0(output.dir, "deg.monkeys.all.newCD3.cd8.csv"))
 
 # Dot plots
+
 variables_to_remove <- ls()
 variable_to_keep <- c("monkeys.all.combined.sct.cd3", "deg.monkeys.all.cd4", "deg.monkeys.all.cd8", "deg.monkeys.all.combined.sct.cd3")
 variables_to_remove <- variables_to_remove[variables_to_remove != variable_to_keep]
