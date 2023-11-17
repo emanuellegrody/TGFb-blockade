@@ -237,7 +237,7 @@ deg.monkeys.all.combined.sct.cd3 <- FindMarkers(monkeys.all.combined.sct.cd3, lo
 deg.monkeys.all.cd4 <- FindMarkers(monkeys.all.cd4, logfc.threshold = 0.2, ident.1 = "W37", ident.2 = "W35", verbose = FALSE) %>% filter(p_val_adj <0.05)
 deg.monkeys.all.cd8 <- FindMarkers(monkeys.all.cd8, logfc.threshold = 0.2, ident.1 = "W37", ident.2 = "W35", verbose = FALSE) %>% filter(p_val_adj <0.05)
 
-output.dir = "~/outputs/"
+output.dir = "~/MonkeyAllRedo/outputs/"
 write.csv(deg.monkeys.all.combined.sct.cd3, paste0(output.dir, "deg.monkeys.all.newCD3.cd3.csv"))
 write.csv(deg.monkeys.all.cd4, paste0(output.dir, "deg.monkeys.all.newCD3.cd4.csv"))
 write.csv(deg.monkeys.all.cd8, paste0(output.dir, "deg.monkeys.all.newCD3.cd8.csv"))
