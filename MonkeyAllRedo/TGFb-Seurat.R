@@ -6,6 +6,7 @@ library(ggplot2)
 
 # Loading in data
 
+##download Parse sequencing data from GEO to folder "inputs"
 parseDirectory = "~/inputs/"
 
 monkey171w35.data <- ReadParseBio(data.dir = paste0(parseDirectory, "08M171_W35/DGE_filtered"))
